@@ -1,0 +1,80 @@
+name: "Run nixpkgs-review"
+on:
+  workflow_dispatch:
+    inputs:
+      patch-repo:
+        description: Patch repo to actions/checkout
+        required: true
+        default: 'usertam/nixpkgs'
+      patch-ref:
+        description: Patch branch (or ref) to actions/checkout
+        required: true
+        default: 'patch/'
+      base-commit:
+        description: Base commit in nixpkgs to compare against, e.g. 7f28d1b
+        required: true
+      extra-args:
+        description: Extra arguments to nixpkgs-review, e.g. --build-args '--print-build-logs --relaxed-sandbox' --extra-nixpkgs-config '{ allowUnfree = true; permittedInsecurePackages = [ ]; }'
+        default: "--build-args '--print-build-logs '"
+jobs:
+  review:
+    name: Review on ${{matrix.system}}
+    strategy:
+      matrix:
+        include:
+        - system: x86_64-linux
+          runs-on: ubuntu-latest
+        - system: aarch64-linux
+          runs-on: ubuntu-24.04-arm
+        - system: x86_64-darwin
+          runs-on: macos-13
+        - system: aarch64-darwin
+          runs-on: macos-latest
+      fail-fast: false
+    runs-on: ${{matrix.runs-on}}
+    steps:
+    - uses: actions/checkout@main
+      with:
+        repository: ${{github.event.inputs.patch-repo}}
+        ref: ${{github.event.inputs.patch-ref}}
+    - uses: DeterminateSystems/nix-installer-action@main
+    - name: Fetch upstream nixpkgs base
+      run: |
+        git remote add upstream https://github.com/NixOS/nixpkgs.git
+        git fetch upstream ${{github.event.inputs.base-commit}} --depth=1
+    - name: Run nixpkgs-review
+      run: |
+        nix run .#nixpkgs-review -- rev -b ${{github.event.inputs.base-commit}} HEAD \
+          --print-result ${{github.event.inputs.extra-args}} | tee ${{matrix.system}}.report.tmp
+    - name: Report
+      run: |
+        grep -vE '\$ |HEAD is|Local eval' ${{matrix.system}}.report.tmp | \
+          sed -n '/## `nixpkgs-review` result/,/<\/details>/p' > ${{matrix.system}}.report
+        echo -n '::notice::%0A'
+        sed 'H;1h;$!d;x;s/\n/%0A/g' ${{matrix.system}}.report
+    - name: Upload review
+      uses: actions/upload-artifact@main
+      with:
+        name: ${{matrix.system}}
+        path: ${{matrix.system}}.report
+  report:
+    name: Summary report
+    needs: review
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@main
+      with:
+        merge-multiple: true
+    - name: Display summary report
+      run: |
+        echo -n '::notice::%0A'
+        echo -n 'Checkout: ${{github.event.inputs.patch-repo}} @ ${{github.event.inputs.patch-ref}}%0A'
+        echo -n 'Base commit: ${{github.event.inputs.base-commit}}%0A'
+        echo -n "Arguments: "; cat <<'EOF' | tr -d '\n'
+        ${{github.event.inputs.extra-args}}
+        EOF
+        echo -n '%0A%0A'
+        sed -n '/^## .*$/,$p' x86_64-linux.report | sed 'H;1h;$!d;x;s/\n/%0A/g' | tr -d '\n'; echo -n '%0A%0A'
+        sed -n '/^### .*$/,$p' aarch64-linux.report | sed 'H;1h;$!d;x;s/\n/%0A/g' | tr -d '\n'; echo -n '%0A%0A'
+        sed -n '/^### .*$/,$p' x86_64-darwin.report | sed 'H;1h;$!d;x;s/\n/%0A/g' | tr -d '\n'; echo -n '%0A%0A'
+        sed -n '/^### .*$/,$p' aarch64-darwin.report | sed 'H;1h;$!d;x;s/\n/%0A/g'
