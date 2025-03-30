@@ -10,6 +10,10 @@ on:
         description: Patch branch (or ref) to actions/checkout
         required: true
         default: 'patch/'
+      patch-depth:
+        description: Patch fetch depth to actions/checkout
+        required: true
+        default: 2
       base-commit:
         description: Base commit in nixpkgs to compare against, e.g. 7f28d1b
         required: true
@@ -37,6 +41,7 @@ jobs:
       with:
         repository: ${{github.event.inputs.patch-repo}}
         ref: ${{github.event.inputs.patch-ref}}
+        fetch-depth: ${{github.event.inputs.patch-depth}}
     - uses: DeterminateSystems/nix-installer-action@main
     - name: Fetch upstream nixpkgs base
       run: |
