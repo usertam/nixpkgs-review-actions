@@ -62,24 +62,30 @@ jobs:
       with:
         name: ${{matrix.system}}
         path: ${{matrix.system}}.report
-  report:
-    name: Summary report
+  summary:
+    name: Generate summary report
     needs: review
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@main
       with:
         merge-multiple: true
+    - name: Write summary report
+      run: |
+        sed -n '/^## .*$/,$p' x86_64-linux.report >> all.report
+        sed -n '/^### .*$/,$p' aarch64-linux.report >> all.report
+        sed -n '/^### .*$/,$p' x86_64-darwin.report >> all.report
+        sed -n '/^### .*$/,$p' aarch64-darwin.report >> all.report
     - name: Display summary report
       run: |
-        echo -n '::notice::%0A'
-        echo -n 'Checkout: ${{github.event.inputs.patch-repo}} @ ${{github.event.inputs.patch-ref}}%0A'
-        echo -n 'Base commit: ${{github.event.inputs.base-commit}}%0A'
-        echo -n "Arguments: "; cat <<'EOF' | tr -d '\n'
-        ${{github.event.inputs.extra-args}}
+        cat <<'EOF' > $GITHUB_STEP_SUMMARY
+        ## Review configuration
+        Checkout: `${{github.event.inputs.patch-repo}}` @ `${{github.event.inputs.patch-ref}}`
+        Base commit: `${{github.event.inputs.base-commit}}`
+        Arguments: `${{github.event.inputs.extra-args}}`
         EOF
-        echo -n '%0A%0A'
-        sed -n '/^## .*$/,$p' x86_64-linux.report | sed 'H;1h;$!d;x;s/\n/%0A/g' | tr -d '\n'; echo -n '%0A%0A'
-        sed -n '/^### .*$/,$p' aarch64-linux.report | sed 'H;1h;$!d;x;s/\n/%0A/g' | tr -d '\n'; echo -n '%0A%0A'
-        sed -n '/^### .*$/,$p' x86_64-darwin.report | sed 'H;1h;$!d;x;s/\n/%0A/g' | tr -d '\n'; echo -n '%0A%0A'
-        sed -n '/^### .*$/,$p' aarch64-darwin.report | sed 'H;1h;$!d;x;s/\n/%0A/g'
+        cat all.report >> $GITHUB_STEP_SUMMARY
+        echo >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        cat all.report >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
