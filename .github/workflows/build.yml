@@ -72,7 +72,7 @@ jobs:
     - name: Report
       run: |
         grep -vE '\$ |HEAD is|Local eval' ${{matrix.system}}.report.tmp | \
-          sed -n '/## `nixpkgs-review` result/,/<\/details>/p' > ${{matrix.system}}.report
+          perl -e "print reverse(<>)" | sed -n '/<\/details>/,/## `nixpkgs-review` result/p' | perl -e "print reverse(<>)" > ${{matrix.system}}.report
         echo -n '::notice::%0A'
         sed 'H;1h;$!d;x;s/\n/%0A/g' ${{matrix.system}}.report
     - name: Upload review
@@ -90,10 +90,10 @@ jobs:
         merge-multiple: true
     - name: Write summary report
       run: |
-        sed -n '/^## .*$/,$p' x86_64-linux.report | grep -v '---' > all.report; echo >> all.report
-        sed -n '/^### .*$/,$p' aarch64-linux.report >> all.report; echo >> all.report
-        sed -n '/^### .*$/,$p' x86_64-darwin.report >> all.report; echo >> all.report
-        sed -n '/^### .*$/,$p' aarch64-darwin.report >> all.report
+        sed -n '/## /,$p' x86_64-linux.report | grep -v '\-\-\-' > all.report; echo >> all.report
+        sed -n '/### /,$p' aarch64-linux.report >> all.report; echo >> all.report
+        sed -n '/### /,$p' x86_64-darwin.report >> all.report; echo >> all.report
+        sed -n '/### /,$p' aarch64-darwin.report >> all.report
     - name: Display summary report
       run: |
         cat <<EOF > $GITHUB_STEP_SUMMARY
