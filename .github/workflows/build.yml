@@ -51,6 +51,11 @@ jobs:
       run: |
         git config user.name "github-actions"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+    - name: Set up swap space
+      uses: pierotofy/set-swap-space@master
+      if: runner.os == 'Linux'
+      with:
+        swap-size-gb: 16
     - name: Run nixpkgs-review
       run: |
         nix run .#nixpkgs-review -- rev -b ${{github.event.inputs.base-commit}} HEAD \
