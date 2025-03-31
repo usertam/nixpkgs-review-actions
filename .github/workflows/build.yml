@@ -3,20 +3,25 @@ on:
   workflow_dispatch:
     inputs:
       patch-repo:
-        description: Patch repo to actions/checkout
+        description: Patch repository
         required: true
         default: 'usertam/nixpkgs'
       patch-ref:
-        description: Patch branch (or ref) to actions/checkout
+        description: Patch branch (or ref)
         required: true
         default: 'patch/'
       patch-depth:
-        description: Patch fetch depth to actions/checkout
+        description: Patch branch fetch depth
         required: true
-        default: 2
+        default: 0
       base-commit:
-        description: Base commit in nixpkgs to compare against, e.g. 7f28d1b
+        description: Base branch (or ref) in nixpkgs
         required: true
+        default: 'master'
+      base-depth:
+        description: Base branch fetch depth
+        required: true
+        default: 0
       extra-args:
         description: Extra arguments to nixpkgs-review, e.g. --build-args '--print-build-logs --relaxed-sandbox' --extra-nixpkgs-config '{ allowUnfree = true; permittedInsecurePackages = [ ]; }'
         default: "--build-args '--print-build-logs '"
@@ -46,7 +51,11 @@ jobs:
     - name: Fetch upstream nixpkgs base
       run: |
         git remote add upstream https://github.com/NixOS/nixpkgs.git
-        git fetch upstream ${{github.event.inputs.base-commit}} --depth=1
+        if [ "${{ github.event.inputs.base-depth }}" -gt 0 ]; then
+          git fetch upstream ${{github.event.inputs.base-commit}} --depth=${{github.event.inputs.base-depth}}
+        else
+          git fetch upstream ${{github.event.inputs.base-commit}}
+        fi
     - name: Set up github-actions name and email
       run: |
         git config user.name "github-actions"
