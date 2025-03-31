@@ -14,7 +14,7 @@ on:
         description: Patch branch fetch depth
         required: true
         default: 0
-      base-commit:
+      base-ref:
         description: Base branch (or ref) in nixpkgs
         required: true
         default: 'master'
@@ -52,9 +52,9 @@ jobs:
       run: |
         git remote add upstream https://github.com/NixOS/nixpkgs.git
         if [ "${{ github.event.inputs.base-depth }}" -gt 0 ]; then
-          git fetch upstream ${{github.event.inputs.base-commit}} --depth=${{github.event.inputs.base-depth}}
+          git fetch upstream ${{github.event.inputs.base-ref}} --depth=${{github.event.inputs.base-depth}}
         else
-          git fetch upstream ${{github.event.inputs.base-commit}}
+          git fetch upstream ${{github.event.inputs.base-ref}}
         fi
     - name: Set up github-actions name and email
       run: |
@@ -67,7 +67,7 @@ jobs:
         swap-size-gb: 16
     - name: Run nixpkgs-review
       run: |
-        nix run .#nixpkgs-review -- rev -b ${{github.event.inputs.base-commit}} HEAD \
+        nix run .#nixpkgs-review -- rev -b ${{github.event.inputs.base-ref}} HEAD \
           --print-result ${{github.event.inputs.extra-args}} | tee ${{matrix.system}}.report.tmp
     - name: Report
       run: |
@@ -90,20 +90,46 @@ jobs:
         merge-multiple: true
     - name: Write summary report
       run: |
-        sed -n '/^## .*$/,$p' x86_64-linux.report >> all.report
-        sed -n '/^### .*$/,$p' aarch64-linux.report >> all.report
-        sed -n '/^### .*$/,$p' x86_64-darwin.report >> all.report
+        sed -n '/^## .*$/,$p' x86_64-linux.report | grep -v '---' > all.report; echo >> all.report
+        sed -n '/^### .*$/,$p' aarch64-linux.report >> all.report; echo >> all.report
+        sed -n '/^### .*$/,$p' x86_64-darwin.report >> all.report; echo >> all.report
         sed -n '/^### .*$/,$p' aarch64-darwin.report >> all.report
     - name: Display summary report
       run: |
-        cat <<'EOF' > $GITHUB_STEP_SUMMARY
+        cat <<EOF > $GITHUB_STEP_SUMMARY
         ## Review configuration
-        Checkout: `${{github.event.inputs.patch-repo}}` @ `${{github.event.inputs.patch-ref}}`
-        Base commit: `${{github.event.inputs.base-commit}}`
-        Arguments: `${{github.event.inputs.extra-args}}`
+        <table>
+            <tr>
+                <th></th>
+                <th>Repository</th>
+                <th>Branch/Reference</th>
+                <th>Depth</th>
+            </tr>
+            <tr>
+                <td>Patch</td>
+                <td>${{github.event.inputs.patch-repo}}</td>
+                <td>${{github.event.inputs.patch-ref}}</td>
+                <td>${{github.event.inputs.patch-depth}}</td>
+            </tr>
+            <tr>
+                <td>Base</td>
+                <td>NixOS/nixpkgs</td>
+                <td>${{github.event.inputs.base-ref}}</td>
+                <td>${{github.event.inputs.base-depth}}</td>
+            </tr>
+            <tr>
+                <td>Arguments</td>
+                <td colspan="3"><code>${{github.event.inputs.extra-args}}</code></td>
+            </tr>
+        </table>
+
+        ### Rendered
+
+        $(cat all.report)
+
+        ### Raw
+
+        \`\`\`
+        $(cat all.report)
+        \`\`\`
         EOF
-        cat all.report >> $GITHUB_STEP_SUMMARY
-        echo >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        cat all.report >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
