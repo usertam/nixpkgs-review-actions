@@ -90,10 +90,22 @@ jobs:
         merge-multiple: true
     - name: Write summary report
       run: |
-        sed -n '/## /,$p' x86_64-linux.report | grep -v '\-\-\-' > all.report; echo >> all.report
-        sed -n '/### /,$p' aarch64-linux.report >> all.report; echo >> all.report
-        sed -n '/### /,$p' x86_64-darwin.report >> all.report; echo >> all.report
-        sed -n '/### /,$p' aarch64-darwin.report >> all.report
+        sed -n '/## /,$p' x86_64-linux.report | sed '/---/d' | tee all.report
+        if grep -q 'x86_64-linux' all.report; then
+          echo | tee -a all.report;
+        fi
+        sed -n '/### /,$p' aarch64-linux.report | tee -a all.report
+        if grep -q 'aarch64-linux' all.report; then
+          echo | tee -a all.report;
+        fi
+        sed -n '/### /,$p' x86_64-darwin.report | tee -a all.report
+        if grep -q 'x86_64-darwin' all.report; then
+          echo | tee -a all.report;
+        fi
+        sed -n '/### /,$p' aarch64-darwin.report | tee -a all.report
+        if ! grep -q '[^[:space:]]' all.report; then
+          echo "Nothing to report." > all.report
+        fi
     - name: Display summary report
       run: |
         cat <<EOF > $GITHUB_STEP_SUMMARY
