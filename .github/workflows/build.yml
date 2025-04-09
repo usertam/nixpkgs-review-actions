@@ -1,4 +1,5 @@
 name: "Run nixpkgs-review"
+run-name: "Review on ${{github.event.inputs.patch-repo}}/${{github.event.inputs.patch-ref}}"
 on:
   workflow_dispatch:
     inputs:
