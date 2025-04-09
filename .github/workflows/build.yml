@@ -23,9 +23,17 @@ on:
         description: Base branch fetch depth
         required: true
         default: 0
+      build-args:
+        description: Build arguments to nixpkgs-review
+        default: '--print-build-logs '
+      nixpkgs-config:
+        description: >-
+          Custom nixpkgs configuration to nixpkgs-review, e.g.
+          `allowBroken = true; allowUnfree = true;
+          allowUnsupportedSystem = true;
+          allowInsecurePredicate = x: true;`
       extra-args:
-        description: Extra arguments to nixpkgs-review, e.g. --build-args '--print-build-logs --relaxed-sandbox' --extra-nixpkgs-config '{ allowUnfree = true; permittedInsecurePackages = [ ]; }'
-        default: "--build-args '--print-build-logs '"
+        description: Extra arguments to nixpkgs-review
 jobs:
   review:
     name: Review on ${{matrix.system}}
@@ -42,6 +50,9 @@ jobs:
           runs-on: macos-latest
       fail-fast: false
     runs-on: ${{matrix.runs-on}}
+    outputs:
+      patch-commit: ${{steps.rev-parse.outputs.patch}}
+      base-commit: ${{steps.rev-parse.outputs.base}}
     steps:
     - uses: actions/checkout@main
       with:
@@ -57,6 +68,11 @@ jobs:
         else
           git fetch upstream ${{github.event.inputs.base-ref}}
         fi
+    - name: Output reference hashes
+      id: rev-parse
+      run: |
+        echo "patch=$(git rev-parse --short ${{github.event.inputs.patch-ref}})" | tee -a $GITHUB_OUTPUT
+        echo "base=$(git rev-parse --short ${{github.event.inputs.base-ref}})" | tee -a $GITHUB_OUTPUT
     - name: Set up github-actions name and email
       run: |
         git config user.name "github-actions"
@@ -68,8 +84,18 @@ jobs:
         swap-size-gb: 16
     - name: Run nixpkgs-review
       run: |
-        nix run .#nixpkgs-review -- rev -b ${{github.event.inputs.base-ref}} HEAD \
-          --print-result ${{github.event.inputs.extra-args}} | tee ${{matrix.system}}.report.tmp
+        echo 'nix run .#nixpkgs-review -- rev -b ${{github.event.inputs.base-ref}} HEAD \' | tee review.sh
+        if [ -n "${{github.event.inputs.build-args}}" ]; then
+          echo "  --build-args '${{github.event.inputs.build-args}}' \\" | tee -a review.sh
+        fi
+        if [ -n "${{github.event.inputs.nixpkgs-config}}" ]; then
+          echo "  --extra-nixpkgs-config '{ ${{github.event.inputs.nixpkgs-config}} }' \\" | tee -a review.sh
+        fi
+        if [ -n "${{github.event.inputs.extra-args}}" ]; then
+          echo "  ${{github.event.inputs.extra-args}} \\" | tee -a review.sh
+        fi
+        echo "  --print-result" | tee -a review.sh
+        bash review.sh | tee ${{matrix.system}}.report.tmp
     - name: Report
       run: |
         grep -vE '\$ |HEAD is|Local eval' ${{matrix.system}}.report.tmp | \
@@ -81,8 +107,8 @@ jobs:
       with:
         name: ${{matrix.system}}
         path: ${{matrix.system}}.report
-  summary:
-    name: Generate summary report
+  report:
+    name: Report
     needs: review
     runs-on: ubuntu-latest
     steps:
@@ -105,44 +131,63 @@ jobs:
         fi
         sed -n '/### /,$p' aarch64-darwin.report | tee -a all.report
         if ! grep -q '[^[:space:]]' all.report; then
-          echo "Nothing to report." > all.report
+          echo "Nothing is in the report. :(" | tee all.report
+          echo "Tip: try adding flags to `--extra-nixpkgs-config`." | tee -a all.report
         fi
     - name: Display summary report
       run: |
         cat <<EOF > $GITHUB_STEP_SUMMARY
         ## Review configuration
         <table>
-            <tr>
-                <th></th>
-                <th>Repository</th>
-                <th>Branch/Reference</th>
-                <th>Depth</th>
-            </tr>
-            <tr>
-                <td>Patch</td>
-                <td>${{github.event.inputs.patch-repo}}</td>
-                <td>${{github.event.inputs.patch-ref}}</td>
-                <td>${{github.event.inputs.patch-depth}}</td>
-            </tr>
-            <tr>
-                <td>Base</td>
-                <td>NixOS/nixpkgs</td>
-                <td>${{github.event.inputs.base-ref}}</td>
-                <td>${{github.event.inputs.base-depth}}</td>
-            </tr>
-            <tr>
-                <td>Arguments</td>
-                <td colspan="3"><code>${{github.event.inputs.extra-args}}</code></td>
-            </tr>
+          <tr>
+            <th></th>
+            <th>Repository</th>
+            <th>Branch/Reference</th>
+            <th>Commit (rev-parse)</th>
+            <th>Depth</th>
+          </tr>
+          <tr>
+            <td>Patch</td>
+            <td>${{github.event.inputs.patch-repo}}</td>
+            <td>${{github.event.inputs.patch-ref}}</td>
+            <td><code>${{needs.review.outputs.patch-commit}}</code></td>
+            <td>${{github.event.inputs.patch-depth}}</td>
+          </tr>
+          <tr>
+            <td>Base</td>
+            <td>NixOS/nixpkgs</td>
+            <td>${{github.event.inputs.base-ref}}</td>
+            <td><code>${{needs.review.outputs.base-commit}}</code></td>
+            <td>${{github.event.inputs.base-depth}}</td>
+          </tr>
+        </table>
+
+        <table>
+          <tr>
+            <td>Build arguments</td>
+            <td><code>${{github.event.inputs.build-args}}</code></td>
+          </tr>
+          <tr>
+            <td>Nixpkgs config</td>
+            <td><code>${{github.event.inputs.nixpkgs-config}}</code></td>
+          </tr>
+          <tr>
+            <td>Extra arguments</td>
+            <td><code>${{github.event.inputs.extra-args}}</code></td>
+          </tr>
         </table>
 
         ### Rendered
+
+        [\`usertam/nixpkgs-review-actions\`](${{github.server_url}}/usertam/nixpkgs-review-actions) [\`#${{github.run_id}}\`](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}})
 
         $(cat all.report)
 
         ### Raw
 
         \`\`\`
+        [\`usertam/nixpkgs-review-actions\`](${{github.server_url}}/usertam/nixpkgs-review-actions) [\`#${{github.run_id}}\`](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}})
+
         $(cat all.report)
         \`\`\`
         EOF
