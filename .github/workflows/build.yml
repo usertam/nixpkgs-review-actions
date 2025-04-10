@@ -131,8 +131,8 @@ jobs:
         fi
         sed -n '/### /,$p' aarch64-darwin.report | tee -a all.report
         if ! grep -q '[^[:space:]]' all.report; then
-          echo "Nothing is in the report. :(" | tee all.report
-          echo "Tip: try adding flags to `--extra-nixpkgs-config`." | tee -a all.report
+          echo 'Nothing in the reports. Either no changes, or review crashed out :(' | tee all.report
+          echo 'Try adding allow flags to `--extra-nixpkgs-config`?' | tee -a all.report
         fi
     - name: Display summary report
       run: |
