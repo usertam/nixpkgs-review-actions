@@ -74,7 +74,7 @@ jobs:
       id: rev-parse
       run: |
         echo "patch=$(git rev-parse --short ${{github.event.inputs.patch-ref}})" | tee -a $GITHUB_OUTPUT
-        echo "base=$(git rev-parse --short ${{github.event.inputs.base-ref}})" | tee -a $GITHUB_OUTPUT
+        echo "base=$(git rev-parse --short upstream/${{github.event.inputs.base-ref}})" | tee -a $GITHUB_OUTPUT
     - name: Set up github-actions name and email
       run: |
         git config user.name "github-actions"
