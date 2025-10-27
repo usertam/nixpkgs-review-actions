@@ -16,7 +16,7 @@ on:
       patch-depth:
         description: Patch branch fetch depth
         required: true
-        default: 0
+        default: '10'
       base-ref:
         description: Base branch (or ref) in nixpkgs
         required: true
@@ -24,7 +24,7 @@ on:
       base-depth:
         description: Base branch fetch depth
         required: true
-        default: 0
+        default: '500'
       build-args:
         description: Build arguments to nixpkgs-review
         default: '--print-build-logs '
@@ -75,10 +75,6 @@ jobs:
       run: |
         echo "patch=$(git rev-parse --short ${{github.event.inputs.patch-ref}})" | tee -a $GITHUB_OUTPUT
         echo "base=$(git rev-parse --short upstream/${{github.event.inputs.base-ref}})" | tee -a $GITHUB_OUTPUT
-    - name: Set up github-actions name and email
-      run: |
-        git config user.name "github-actions"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
     - name: Set up swap space
       uses: pierotofy/set-swap-space@master
       if: runner.os == 'Linux'
@@ -98,7 +94,7 @@ jobs:
         fi
         echo "  --print-result" | tee -a review.sh
         bash review.sh | tee ${{matrix.system}}.report.tmp
-    - name: Report
+    - name: Trim review headers and print content
       run: |
         grep -vE '\$ |HEAD is|Local eval' ${{matrix.system}}.report.tmp | \
           perl -e "print reverse(<>)" | sed -n '/<\/details>/,/## `nixpkgs-review` result/p' | perl -e "print reverse(<>)" > ${{matrix.system}}.report
