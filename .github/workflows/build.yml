@@ -78,7 +78,7 @@ jobs:
         swap-size-gb: 16
     - name: Run nixpkgs-review
       run: |
-        echo 'nix run nixpkgs/nixpkgs-unstable#nixpkgs-review -- rev -b ${{github.event.inputs.base-ref}} HEAD \' | tee review.sh
+        echo 'nix run nixpkgs/nixpkgs-unstable#nixpkgs-review -- rev -b ${{steps.rev-parse.outputs.base}} ${{steps.rev-parse.outputs.patch}} \' | tee review.sh
         if [ -n "${{github.event.inputs.build-args}}" ]; then
           echo "  --build-args '${{github.event.inputs.build-args}}' \\" | tee -a review.sh
         fi
