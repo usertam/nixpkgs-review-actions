@@ -61,20 +61,16 @@ jobs:
         repository: ${{github.event.inputs.patch-repo}}
         ref: ${{github.event.inputs.patch-ref}}
         fetch-depth: ${{github.event.inputs.patch-depth}}
-    - uses: DeterminateSystems/nix-installer-action@main
     - name: Fetch upstream nixpkgs base
       run: |
         git remote add upstream https://github.com/NixOS/nixpkgs.git
-        if [ "${{ github.event.inputs.base-depth }}" -gt 0 ]; then
-          git fetch upstream ${{github.event.inputs.base-ref}} --depth=${{github.event.inputs.base-depth}}
-        else
-          git fetch upstream ${{github.event.inputs.base-ref}}
-        fi
+        git fetch upstream ${{github.event.inputs.base-ref}} --depth=${{github.event.inputs.base-depth}}
     - name: Output reference hashes
       id: rev-parse
       run: |
         echo "patch=$(git rev-parse --short ${{github.event.inputs.patch-ref}})" | tee -a $GITHUB_OUTPUT
         echo "base=$(git rev-parse --short upstream/${{github.event.inputs.base-ref}})" | tee -a $GITHUB_OUTPUT
+    - uses: DeterminateSystems/nix-installer-action@main
     - name: Set up swap space
       uses: pierotofy/set-swap-space@master
       if: runner.os == 'Linux'
