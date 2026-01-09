@@ -69,7 +69,7 @@ jobs:
       id: rev-parse
       run: |
         echo "patch=$(git rev-parse --short ${{github.event.inputs.patch-ref}})" | tee -a $GITHUB_OUTPUT
-        echo "base=$(git rev-parse --short upstream/${{github.event.inputs.base-ref}})" | tee -a $GITHUB_OUTPUT
+        echo "base=$(git rev-parse --short ${{github.event.inputs.base-ref}} || git rev-parse --short upstream/${{github.event.inputs.base-ref}})" | tee -a $GITHUB_OUTPUT
     - uses: DeterminateSystems/nix-installer-action@main
     - name: Set up swap space
       uses: pierotofy/set-swap-space@master
